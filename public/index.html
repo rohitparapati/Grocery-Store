@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="style.css">
+  <title>Grocery Store Dashboard</title>
+</head>
+<body>
+  <header>
+    <h1>Welcome to the Grocery Store</h1>
+    <nav>
+      <ul>
+        <li><a href="/" id="home">Home</a></li>
+        <li><a href="/products" id="view-products">Products</a></li>
+        <li><a href="#" id="add-product" onclick="showAddProductForm()">Add Product</a></li>
+        <li><a href="/search" id="search-product">Search</a></li>
+      </ul>
+    </nav>
+  </header>
+  <div id="content">
+    <h2>Manage Products</h2>
+    <div id="product-form" style="display:none;">
+      <input type="text" id="name" placeholder="Name"><br>
+      <input type="number" id="quantity" placeholder="Quantity"><br>
+      <input type="text" id="price" placeholder="Price"><br>
+      <input type="date" id="expiry_date"><br>
+      <button onclick="addProduct()">Add Product</button>
+    </div>
+  </div>
+  <script src="script.js"></script>
+</body>
+</html>
