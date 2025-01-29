@@ -1,101 +1,130 @@
 const express = require('express');
 const bodyParser = require('body-parser');
-const mysql = require('mysql2');
+const mysql = require('mysql2/promise'); // Use promise-based API
 const path = require('path');
 const cors = require('cors');
 
 const app = express();
-const port = 3000;
+const port = process.env.PORT || 3000;
 
-app.use(cors());
+// Enhanced CORS configuration
+app.use(cors({
+  origin: 'http://localhost:3000',
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  allowedHeaders: ['Content-Type']
+}));
+
 app.use(bodyParser.json());
 app.use(express.static('public'));
 
-// Database connection
-const db = mysql.createConnection({
+// Database connection pool for better performance
+const pool = mysql.createPool({
   host: 'localhost',
   user: 'root',
   password: 'root',
-  database: 'grocery_store'
+  database: 'grocery_store',
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0
 });
 
-db.connect(err => {
-  if (err) {
-    console.error('Error connecting to the database:', err);
-    return;
+// Database connection test
+async function testDatabaseConnection() {
+  try {
+    const connection = await pool.getConnection();
+    console.log('Successfully connected to the database');
+    connection.release();
+  } catch (err) {
+    console.error('Database connection failed:', err);
+    process.exit(1);
   }
-  console.log('Connected to the database');
-});
+}
+testDatabaseConnection();
 
-// Serve the main page
+// Serve static files
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// API to add products
-app.post('/products', (req, res) => {
+// Product validation middleware
+const validateProduct = (req, res, next) => {
   const { name, quantity, price, expiry_date } = req.body;
-  const sql = 'INSERT INTO products (name, quantity, price, expiry_date) VALUES (?, ?, ?, ?)';
-  db.query(sql, [name, quantity, price, expiry_date], (err, result) => {
-    if (err) {
-      console.error('Failed to add product:', err);
-      res.status(500).send('Failed to add product.');
-      return;
-    }
-    res.send('Product added successfully!');
-  });
+  if (!name || !quantity || !price || !expiry_date) {
+    return res.status(400).json({ error: 'All fields are required' });
+  }
+  if (isNaN(quantity) || isNaN(price)) {
+    return res.status(400).json({ error: 'Quantity and price must be numbers' });
+  }
+  next();
+};
+
+// API endpoints
+app.post('/products', validateProduct, async (req, res) => {
+  try {
+    const [result] = await pool.execute(
+      'INSERT INTO products (name, quantity, price, expiry_date) VALUES (?, ?, ?, ?)',
+      [req.body.name, req.body.quantity, req.body.price, req.body.expiry_date]
+    );
+    res.status(201).json({ 
+      message: 'Product added successfully',
+      productId: result.insertId 
+    });
+  } catch (err) {
+    console.error('POST /products error:', err);
+    res.status(500).json({ error: 'Failed to add product' });
+  }
 });
 
-// API to fetch all products
-app.get('/products', (req, res) => {
-  db.query('SELECT * FROM products', (err, results) => {
-    if (err) {
-      console.error('Failed to retrieve products:', err);
-      res.status(500).send('Failed to retrieve products.');
-      return;
-    }
-    res.json(results);
-  });
+app.get('/products', async (req, res) => {
+  try {
+    const [products] = await pool.query('SELECT * FROM products');
+    res.json(products);
+  } catch (err) {
+    console.error('GET /products error:', err);
+    res.status(500).json({ error: 'Failed to retrieve products' });
+  }
 });
 
-// API to update a product
-app.put('/products/:id', (req, res) => {
-  const { name, quantity, price, expiry_date } = req.body;
-  const { id } = req.params;
-  const sql = 'UPDATE products SET name = ?, quantity = ?, price = ?, expiry_date = ? WHERE id = ?';
-  db.query(sql, [name, quantity, price, expiry_date, id], (err, result) => {
-    if (err) {
-      console.error('Failed to update product:', err);
-      res.status(500).send('Failed to update product.');
-      return;
-    }
+app.put('/products/:id', validateProduct, async (req, res) => {
+  try {
+    const [result] = await pool.execute(
+      'UPDATE products SET name = ?, quantity = ?, price = ?, expiry_date = ? WHERE id = ?',
+      [req.body.name, req.body.quantity, req.body.price, req.body.expiry_date, req.params.id]
+    );
+    
     if (result.affectedRows === 0) {
-      res.send('No product found with that ID.');
-    } else {
-      res.send('Product updated successfully!');
+      return res.status(404).json({ error: 'Product not found' });
     }
-  });
+    res.json({ message: 'Product updated successfully' });
+  } catch (err) {
+    console.error(`PUT /products/${req.params.id} error:`, err);
+    res.status(500).json({ error: 'Failed to update product' });
+  }
 });
 
-// API to delete a product
-app.delete('/products/:id', (req, res) => {
-  const { id } = req.params;
-  const sql = 'DELETE FROM products WHERE id = ?';
-  db.query(sql, [id], (err, result) => {
-    if (err) {
-      console.error('Failed to delete product:', err);
-      res.status(500).send('Failed to delete product.');
-      return;
-    }
+app.delete('/products/:id', async (req, res) => {
+  try {
+    const [result] = await pool.execute(
+      'DELETE FROM products WHERE id = ?',
+      [req.params.id]
+    );
+    
     if (result.affectedRows === 0) {
-      res.send('No product found with that ID.');
-    } else {
-      res.send('Product deleted successfully!');
+      return res.status(404).json({ error: 'Product not found' });
     }
-  });
+    res.json({ message: 'Product deleted successfully' });
+  } catch (err) {
+    console.error(`DELETE /products/${req.params.id} error:`, err);
+    res.status(500).json({ error: 'Failed to delete product' });
+  }
 });
 
-// Start the server
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error('Server error:', err);
+  res.status(500).json({ error: 'Internal server error' });
+});
+
 app.listen(port, () => {
   console.log(`Server running on http://localhost:${port}`);
 });

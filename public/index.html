@@ -12,22 +12,156 @@
     <nav>
       <ul>
         <li><a href="/" id="home">Home</a></li>
-        <li><a href="/products" id="view-products">Products</a></li>
+        <li><a href="#" id="view-products" onclick="fetchProducts()">Products</a></li>
         <li><a href="#" id="add-product" onclick="showAddProductForm()">Add Product</a></li>
-        <li><a href="/search" id="search-product">Search</a></li>
+        <li><a href="#" id="search-product">Search</a></li>
       </ul>
     </nav>
   </header>
   <div id="content">
     <h2>Manage Products</h2>
+
+    <!-- Add/Update Product Form -->
     <div id="product-form" style="display:none;">
       <input type="text" id="name" placeholder="Name"><br>
       <input type="number" id="quantity" placeholder="Quantity"><br>
       <input type="text" id="price" placeholder="Price"><br>
       <input type="date" id="expiry_date"><br>
-      <button onclick="addProduct()">Add Product</button>
+      <button id="submit-button" onclick="handleProductSubmit()">Add Product</button>
+      <button onclick="clearForm()">Cancel</button>
+    </div>
+
+    <!-- Product List -->
+    <div id="product-list">
+      <h3>Product List</h3>
+      <div id="products-container"></div>
     </div>
   </div>
-  <script src="script.js"></script>
+
+  <script>
+    // Fetch and display all products
+    async function fetchProducts() {
+      try {
+        const response = await fetch('/products');
+        if (!response.ok) throw new Error('Failed to fetch products');
+        const products = await response.json();
+        displayProducts(products);
+      } catch (error) {
+        console.error('Error fetching products:', error);
+        alert('Failed to load products. Please try again.');
+      }
+    }
+
+    // Display products in the UI
+    function displayProducts(products) {
+      const container = document.getElementById('products-container');
+      container.innerHTML = products.map(product => `
+        <div class="product-item" data-id="${product.id}">
+          <span>${product.name}</span>
+          <span>Qty: ${product.quantity}</span>
+          <span>Price: $${product.price}</span>
+          <span>Expiry: ${product.expiry_date}</span>
+          <button onclick="showUpdateForm(${product.id})">Edit</button>
+          <button onclick="deleteProduct(${product.id})">Delete</button>
+        </div>
+      `).join('');
+    }
+
+    // Show the add/update product form
+    function showAddProductForm() {
+      const form = document.getElementById('product-form');
+      form.style.display = 'block';
+      document.getElementById('submit-button').textContent = 'Add Product';
+      form.dataset.editingId = ''; // Clear any editing ID
+    }
+
+    // Show the update form with existing product data
+    async function showUpdateForm(id) {
+      try {
+        const response = await fetch(`/products/${id}`);
+        if (!response.ok) throw new Error('Failed to fetch product details');
+        const product = await response.json();
+
+        // Populate form fields
+        document.getElementById('name').value = product.name;
+        document.getElementById('quantity').value = product.quantity;
+        document.getElementById('price').value = product.price;
+        document.getElementById('expiry_date').value = product.expiry_date;
+
+        // Show form and update button text
+        const form = document.getElementById('product-form');
+        form.style.display = 'block';
+        document.getElementById('submit-button').textContent = 'Update Product';
+        form.dataset.editingId = id; // Store the ID being edited
+      } catch (error) {
+        console.error('Error fetching product details:', error);
+        alert('Failed to load product details. Please try again.');
+      }
+    }
+
+    // Handle form submission (add or update)
+    async function handleProductSubmit() {
+      const form = document.getElementById('product-form');
+      const isEditing = form.dataset.editingId;
+
+      const productData = {
+        name: document.getElementById('name').value,
+        quantity: document.getElementById('quantity').value,
+        price: document.getElementById('price').value,
+        expiry_date: document.getElementById('expiry_date').value,
+      };
+
+      try {
+        const url = isEditing ? `/products/${form.dataset.editingId}` : '/products';
+        const method = isEditing ? 'PUT' : 'POST';
+
+        const response = await fetch(url, {
+          method: method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(productData),
+        });
+
+        if (!response.ok) throw new Error('Failed to submit product');
+
+        const result = await response.json();
+        alert(result.message || 'Product operation successful');
+        clearForm();
+        fetchProducts(); // Refresh the product list
+      } catch (error) {
+        console.error('Error submitting product:', error);
+        alert('Failed to submit product. Please try again.');
+      }
+    }
+
+    // Delete a product
+    async function deleteProduct(id) {
+      if (confirm('Are you sure you want to delete this product?')) {
+        try {
+          const response = await fetch(`/products/${id}`, { method: 'DELETE' });
+          if (!response.ok) throw new Error('Failed to delete product');
+
+          const result = await response.json();
+          alert(result.message || 'Product deleted successfully');
+          fetchProducts(); // Refresh the product list
+        } catch (error) {
+          console.error('Error deleting product:', error);
+          alert('Failed to delete product. Please try again.');
+        }
+      }
+    }
+
+    // Clear the form and hide it
+    function clearForm() {
+      document.getElementById('product-form').style.display = 'none';
+      document.getElementById('name').value = '';
+      document.getElementById('quantity').value = '';
+      document.getElementById('price').value = '';
+      document.getElementById('expiry_date').value = '';
+      document.getElementById('product-form').dataset.editingId = '';
+    }
+
+    // Load products when the page loads
+    document.addEventListener('DOMContentLoaded', fetchProducts);
+  </script>
 </body>
 </html>
