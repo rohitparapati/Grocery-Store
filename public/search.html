@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="style.css">
+  <title>Search Products</title>
+</head>
+<body>
+  <header>
+    <h1>Search Products</h1>
+    <nav>
+      <ul>
+        <li><a href="index.html">Home</a></li>
+        <li><a href="products.html">Products</a></li>
+        <li><a href="add_product.html">Add Product</a></li>
+      </ul>
+    </nav>
+  </header>
+  <div id="search-form">
+    <form>
+      <input type="text" id="search-query" placeholder="Search products..." required><br>
+      <button type="submit" onclick="searchProducts()">Search</button>
+    </form>
+    <div id="search-results"></div>
+  </div>
+
+  <script src="search_script.js"></script>
+</body>
+</html>
