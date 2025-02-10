@@ -150,6 +150,7 @@ async function editProduct(id) {
   }
 }
 
+
 // Initial load
 document.addEventListener('DOMContentLoaded', () => {
   fetchProducts();
