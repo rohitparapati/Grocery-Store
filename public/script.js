@@ -39,3 +39,17 @@ function showAddProductForm() {
     });
   }
   
+  function searchProducts() {
+    const searchTerm = document.getElementById('search-input').value;
+    fetch(`/search?q=${searchTerm}`)
+      .then(response => {
+        if (!response.ok) throw new Error('Search failed');
+        return response.json();
+      })
+      .then(products => displayProducts(products))
+      .catch(error => {
+        console.error('Error searching products:', error);
+        alert('Failed to search products. Please try again.');
+      });
+  }
+  

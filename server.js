@@ -13,7 +13,7 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type']
 }));
-
+ 
 app.use(bodyParser.json());
 app.use(express.static('public'));
 
@@ -119,11 +119,17 @@ app.delete('/products/:id', async (req, res) => {
   }
 });
 
-// Error handling middleware
-app.use((err, req, res, next) => {
-  console.error('Server error:', err);
-  res.status(500).json({ error: 'Internal server error' });
+app.get('/search', async (req, res) => {
+  const searchQuery = req.query.q;
+  try {
+    const [products] = await pool.query('SELECT * FROM products WHERE name LIKE ?', [`%${searchQuery}%`]);
+    res.json(products);
+  } catch (err) {
+    console.error('GET /search error:', err);
+    res.status(500).json({ error: 'Failed to retrieve search results' });
+  }
 });
+
 
 app.listen(port, () => {
   console.log(`Server running on http://localhost:${port}`);
